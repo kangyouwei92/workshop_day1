@@ -1,0 +1,70 @@
+<main>
+  <header>
+    <p class="eyebrow">SNIP / SMALL LINKS, BIG POSSIBILITIES</p>
+    <h1>Less link.<br>More possibility.</h1>
+    <p class="intro">Turn a long URL into something worth sharing.</p>
+  </header>
+
+  <section class="card" aria-labelledby="create-heading">
+    <h2 id="create-heading">Shorten a link</h2>
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="submitting()">
+      <label for="url">Your original URL</label>
+      <div class="input-row">
+        <input id="url" type="url" formControlName="url" placeholder="https://example.com/something-great"
+          autocomplete="url" inputmode="url" required
+          [readOnly]="submitting()" (input)="clearSubmitFeedback()"
+          aria-describedby="url-hint url-error"
+          [attr.aria-invalid]="(form.controls.url.touched && form.controls.url.invalid) || !!submitError()">
+        <button type="submit" [disabled]="submitting()">
+          {{ submitting() ? 'Shortening...' : 'Shorten link' }}
+        </button>
+      </div>
+      <p class="muted" id="url-hint">Use a complete URL starting with http:// or https://.</p>
+      <div id="url-error" class="error" aria-live="polite">
+        @if (form.controls.url.touched && form.controls.url.invalid) {
+          <p>Enter a valid HTTP or HTTPS URL.</p>
+        }
+        @if (submitError()) { <p>{{ submitError() }}</p> }
+      </div>
+    </form>
+    <div aria-live="polite" role="status">
+      @if (result(); as link) {
+        <p class="success">Ready to share: <a [href]="link.shortUrl" target="_blank" rel="noopener noreferrer">{{ link.shortUrl }}</a></p>
+      }
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="links-heading" [attr.aria-busy]="loading()">
+    <div class="section-header">
+      <h2 id="links-heading">Your links</h2>
+      <button type="button" class="secondary" (click)="refresh()" [disabled]="loading()">
+        {{ loading() ? 'Refreshing...' : 'Refresh links' }}
+      </button>
+    </div>
+    <div role="status" aria-live="polite">
+      @if (loading()) { <p class="muted">Loading links...</p> }
+    </div>
+    @if (listError()) { <p class="error" role="alert">{{ listError() }} Use Refresh links to retry.</p> }
+    @if (!loading() && !listError() && links().length === 0) {
+      <p class="empty">No links yet. Your first short link starts above.</p>
+    }
+    @if (links().length > 0) {
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Links table">
+        <table>
+          <caption class="sr-only">Short links, original URLs and hit counts. Links open in a new tab.</caption>
+          <thead><tr><th scope="col">Short link</th><th scope="col">Original URL</th><th scope="col" class="hits">Hits</th></tr></thead>
+          <tbody>
+            @for (link of links(); track link.code) {
+              <tr>
+                <td><a [href]="link.shortUrl" target="_blank" rel="noopener noreferrer">{{ link.code }}</a></td>
+                <td class="original"><a [href]="link.url" target="_blank" rel="noopener noreferrer">{{ link.url }}</a></td>
+                <td class="hits">{{ link.hits }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    <p class="muted footnote">Links live in memory and disappear when the server restarts. Refresh to see the latest hit counts.</p>
+  </section>
+</main>
