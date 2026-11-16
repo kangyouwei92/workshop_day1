@@ -70,3 +70,13 @@ git push origin main
 
 Replace `backend` with `frontend` or `cli` as needed. A submodule commit must be
 pushed before its new pointer can be used by other clones.
+
+## Generated bundle
+
+The `bundle` submodule tracks generated output; do not edit it by hand. On a
+clean `main` checkout, run `node scripts/build-bundle.mjs` to update source
+submodules to their branch tips, build the frontend, and commit changed bundle
+and superproject pointers locally. Run it with `--push` to publish both branches.
+The script requires Git commit identity and refuses dirty component checkouts.
+Run it again without source changes to verify it is a no-op. The bundle runs
+with `bun start` or can be built with `docker build -t snip bundle`.
