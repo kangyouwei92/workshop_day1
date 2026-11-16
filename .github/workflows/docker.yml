@@ -1,0 +1,75 @@
+name: Build and push image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - bundle
+      - .github/workflows/docker.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Test CLI and audit frontend dependencies
+        run: |
+          npm test --prefix cli
+          npm ci --prefix frontend
+          npm audit --audit-level=high --prefix frontend
+      - name: Build candidate image
+        id: image
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "name=$image" >> "$GITHUB_OUTPUT"
+          docker build --tag "$image:candidate" ./bundle
+      - name: Smoke test candidate
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          set -eu
+          docker run --rm -d --name snip-smoke -p 127.0.0.1:3000:3000 "$IMAGE:candidate"
+          trap 'docker stop snip-smoke >/dev/null 2>&1 || true' EXIT
+          ready=false
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/api/links >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          test "$ready" = true
+          curl -fsS http://127.0.0.1:3000/ | grep -q '<app-root'
+          result=$(curl -fsS -X POST http://127.0.0.1:3000/api/links -H 'content-type: application/json' -d '{"url":"https://example.com/"}')
+          code=$(printf '%s' "$result" | node -pe 'JSON.parse(require("fs").readFileSync(0)).code')
+          test "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:3000/$code")" = 302
+          SNIP_API=http://127.0.0.1:3000 node cli/cli.js ls | grep -F "$code"
+          curl -fsS http://127.0.0.1:3000/api/links | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>{if(!JSON.parse(s).some(x=>x.hits===1))process.exit(1)})'
+      - name: Scan candidate image
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        with:
+          image-ref: ${{ steps.image.outputs.name }}:candidate
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push verified image
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          docker tag "$IMAGE:candidate" "$IMAGE:latest"
+          docker tag "$IMAGE:candidate" "$IMAGE:sha-${GITHUB_SHA:0:7}"
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:sha-${GITHUB_SHA:0:7}"
