@@ -57,6 +57,7 @@ jobs:
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
         with:
           image-ref: ${{ steps.image.outputs.name }}:candidate
+          version: v0.69.2
           severity: HIGH,CRITICAL
           exit-code: '1'
       - name: Log in to GHCR
