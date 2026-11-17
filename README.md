@@ -81,8 +81,8 @@ The script requires Git commit identity and refuses dirty component checkouts.
 Run it again without source changes to verify it is a no-op. The bundle runs
 with `bun start` or can be built with `docker build -t snip bundle`.
 
-The manual bundle workflow checks dependencies and the CLI before pushing.
-It dispatches the image workflow explicitly because a push made with
+The hourly/manual bundle workflow checks dependencies and the CLI before
+pushing. It dispatches the image workflow explicitly because a push made with
 `GITHUB_TOKEN` does not trigger a separate push workflow. The image workflow
 checks dependencies, smoke-tests and scans the candidate image before pushing
 it to GHCR. High or critical findings block publication.
